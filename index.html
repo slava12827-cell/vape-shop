@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вейп-шоп Магазин</title>
+    <!-- Подключаем Telegram Web App JS -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Подключаем стили и скрипт для карты Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 15px; background: #f4f4f9; color: #333; }
+        h2 { font-size: 20px; margin-top: 10px; }
+        .product { background: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        button { background: #2481cc; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
+        button:active { background: #1b659d; }
+        #map { width: 100%; height: 250px; border-radius: 8px; margin-top: 10px; }
+        .section { background: white; padding: 12px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <h2>📦 Каталог товаров</h2>
+    <div class="product">
+        <div>
+            <strong>Одноразка Elf Bar (1500тяг)</strong><br>
+            <span>750 руб.</span>
+        </div>
+        <button onclick="addToCart('Одноразка Elf Bar', 750)">В корзину</button>
+    </div>
+    <div class="product">
+        <div>
+            <strong>Под-система XROS 3</strong><br>
+            <span>2400 руб.</span>
+        </div>
+        <button onclick="addToCart('Под-система XROS 3', 2400)">В корзину</button>
+    </div>
+
+    <div class="section">
+        <h3>🛒  Ваша корзина:</h3>
+        <p id="cart-items">Пусто</p>
+        <p><strong>Итого: <span id="total-price">0</span> руб.</strong></p>
+    </div>
+
+    <div class="section">
+        <h3>📍  Укажите адрес доставки (кликните на карту):</h3>
+        <input type="text" id="address-input" placeholder="Адрес появится при клике на карту..." readonly>
+        <div id="map"></div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand(); // Растягиваем мини-апп на весь экран
+
+        let cart = [];
+        let selectedAddress = "Не выбран";
+
+        function addToCart(name, price) {
+            cart.push({name, price});
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            let itemsText = cart.length === 0 ? "Пусто" : cart.map(i => `${i.name} — ${i.price} руб.`).join("<br>");
+            let total = cart.reduce((sum, item) => sum + item.price, 0);
+            document.getElementById('cart-items').innerHTML = itemsText;
+            document.getElementById('total-price').innerText = total;
+        }
+
+        // Инициализация карты (центр — Москва для примера)
+        let map = L.map('map').setView([55.751244, 37.618423], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        let marker;
+        map.on('click', function(e) {
+            let lat = e.latlng.lat;
+            let lon = e.latlng.lng;
+            
+            if (marker) {
+                map.removeLayer(marker);
+            }
+            marker = L.marker([lat, lon]).addTo(map);
+
+            // Упрощенный адрес по координатам (или можно подключить геокодер)
+            selectedAddress = `Широта: ${lat.toFixed(4)}, Долгота: ${lon.toFixed(4)}`;
+            document.getElementById('address-input').value = selectedAddress;
+        });
+
+        // Настраиваем главную кнопку Telegram (когда пользователь нажмет «Заказать» внизу экрана)
+        tg.MainButton.text = "Оформить заказ";tg.MainButton.show();
+
+        Telegram.WebApp.onEvent('mainButtonClicked', function(){
+            if (cart.length === 0) {
+                alert('Корзина пуста!');
+                return;
+            }
+            if (selectedAddress === "Не выбран") {
+                alert('Пожалуйста, выберите адрес на карте!');
+                return;
+            }
+
+            let orderData = {
+                items: cart,
+                address: selectedAddress,
+                total: cart.reduce((sum, item) => sum + item.price, 0)
+            };
+
+            // Отправляем данные назад нашему боту в Telegram
+            tg.sendData(JSON.stringify(orderData));
+        });
+    </script>
+</body>
+</html>
